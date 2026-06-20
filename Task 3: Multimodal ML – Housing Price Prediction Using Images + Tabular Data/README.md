@@ -1,8 +1,8 @@
-# 📊 Task 2 — End-to-End ML Pipeline with Scikit-learn (Customer Churn)
+# 🏠 Task 3 — Multimodal ML: Housing Price Prediction (Images + Tabular Data)
 
-A reusable, production-ready machine learning pipeline that predicts whether a
-telecom customer will churn, built with scikit-learn's `Pipeline`, `ColumnTransformer`,
-and `GridSearchCV` APIs.
+A multimodal deep learning pipeline that combines a **CNN image branch** and a
+**Dense tabular branch** to predict California housing prices, built with
+TensorFlow/Keras.
 
 ---
 
@@ -10,137 +10,129 @@ and `GridSearchCV` APIs.
 
 | Requirement | Status |
 |---|---|
-| Data preprocessing (scaling, encoding) using `Pipeline` | ✅ `ColumnTransformer` with `StandardScaler` + `OneHotEncoder` |
-| Train Logistic Regression and Random Forest | ✅ Both in a single `GridSearchCV` |
-| Hyperparameter tuning with `GridSearchCV` | ✅ 5-fold CV, F1-score optimized, 24 total candidates |
-| Export complete pipeline using `joblib` | ✅ Saved as `churn_pipeline.joblib`, reloaded and tested |
+| Combine image + tabular data in one model | ✅ CNN branch + Dense branch, concatenated |
+| CNN for image feature extraction | ✅ 3-layer Conv2D → MaxPool → Flatten → Dense(128) |
+| Dense layers for tabular features | ✅ Dense(64) → Dense(32) |
+| Regression output (price prediction) | ✅ Final Dense(1), optimized with MSE |
+| Evaluate and compare vs baseline | ✅ MAE + RMSE, multimodal vs tabular-only |
 
 ---
 
 ## 📁 Project Structure
 
 ```
-task2_churn_pipeline/
-├── churn_pipeline.py        # Main script — run this in VS Code
-├── churn_pipeline.ipynb     # Jupyter Notebook version (step-by-step)
-├── churn_pipeline.joblib    # Exported trained pipeline (created after running)
-└── README.md                # This file
+task3_multimodal/
+├── Task3_Multimodal_Housing_Price_Prediction.ipynb   # Main notebook (run on Colab)
+└── README.md                                         # This file
 ```
 
 ---
 
 ## 📦 Dataset
 
-**Telco Customer Churn** — 7,043 customers, 21 columns.
+**California Housing Dataset** — built into scikit-learn, no download needed.
 
-The script auto-downloads the dataset directly from IBM's public GitHub repository.
-No manual download or Kaggle login required.
+- 20,640 samples, 8 numeric features
+- Target: median house value (in $100,000s)
+- Features: MedInc, HouseAge, AveRooms, AveBedrms, Population, AveOccup, Latitude, Longitude
+
+**Synthetic images** are auto-generated for each sample (64×64 RGB). The image
+brightness correlates with price, giving the CNN a real signal to learn — while
+keeping the demo fully self-contained without needing a real image dataset.
 
 ---
 
-## ⚙️ Setup
+## ⚙️ Setup (Google Colab — Recommended)
+
+No local setup needed. Upload the notebook to Colab and run:
+
+1. **Runtime → Change runtime type → T4 GPU → Save**
+2. **Runtime → Run all**
+
+The first cell installs all dependencies automatically.
+
+### Local Setup (VS Code / Jupyter)
 
 ```bash
-# Create and activate virtual environment
 python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # macOS / Linux
+venv\Scripts\activate          # Windows
+source venv/bin/activate       # macOS / Linux
 
-# Install dependencies
-pip install pandas numpy scikit-learn joblib
+pip install tensorflow scikit-learn matplotlib numpy pandas jupyter
+jupyter notebook Task3_Multimodal_Housing_Price_Prediction.ipynb
 ```
 
 ---
 
-## ▶️ How to Run
+## 🏗️ Model Architecture
 
-### Option A — VS Code (recommended)
-```bash
-python churn_pipeline.py
 ```
-
-### Option B — Jupyter Notebook
-```bash
-pip install jupyter
-jupyter notebook churn_pipeline.ipynb
+Image Input (64×64×3)          Tabular Input (8 features)
+       │                                │
+  Conv2D(32) + MaxPool             Dense(64, relu)
+  Conv2D(64) + MaxPool             Dense(32, relu)
+  Conv2D(128) + MaxPool                │
+  Flatten → Dense(128)           [32-dim vector]
+       │                                │
+       └──────── Concatenate ───────────┘
+                     │
+               Dense(64, relu)
+               Dropout(0.2)
+               Dense(32, relu)
+               Dense(1)  ← predicted price
 ```
-
-Both options produce identical results. Runtime: under 1 minute on any laptop (no GPU needed).
 
 ---
 
-## 🔑 Key Design Decisions
+## 🔧 Key Fix Applied (SyntaxError)
 
-**Single GridSearchCV across both models:**
-Both Logistic Regression and Random Forest are tuned in one unified `GridSearchCV`
-call using a list-style `param_grid`. This is the correct production approach —
-one search, one winner, no manual comparison code.
+The original notebook had `generate_house_image()` split across **3 separate cells**:
+- Cell 1: `def generate_house_image(price, size=(64, 64)):` — just the `def` line
+- Cell 2: Markdown cell containing the docstring
+- Cell 3: The function body
 
-**`drop='first'` in OneHotEncoder:**
-Drops the first category from each encoded column to avoid the dummy variable trap
-(multicollinearity), which matters especially for Logistic Regression.
-
-**Complete pipeline in one `.joblib` file:**
-The exported file contains the preprocessing steps (scaling + encoding) AND the
-trained classifier. You feed it raw, unprocessed data — it handles everything internally.
+Python requires the `def` line and its body to be in the **same cell**. Splitting
+them across cells causes `SyntaxError: incomplete input`. All three parts have
+been merged into one clean code cell, along with `build_image_branch()` and
+`build_tabular_branch()` which are now also in a single cell.
 
 ---
 
-## 📊 Results
+## 📊 Expected Results
 
-| Metric | Score |
-|---|---|
-| Accuracy | ~80% |
-| F1-Score | ~0.60 |
-| Precision | ~0.65 |
-| Recall | ~0.57 |
-| ROC-AUC | ~0.84 |
+| Model | MAE | RMSE |
+|---|---|---|
+| Multimodal (CNN + Tabular) | ~0.55–0.65 | ~0.75–0.90 |
+| Tabular-only baseline | ~0.60–0.70 | ~0.80–0.95 |
 
-Note: This dataset is imbalanced (~27% churn), so F1-score and ROC-AUC are more
-meaningful than raw accuracy.
+The multimodal model should outperform the tabular-only baseline, demonstrating
+that even synthetic image features add predictive signal.
+
+Results may vary slightly each run due to random image generation.
 
 ---
 
-## 🔁 Using the Exported Pipeline
+## 💡 Real-World Extension
 
-```python
-import joblib
-import pandas as pd
-
-pipeline = joblib.load('churn_pipeline.joblib')
-
-# Raw unprocessed customer data (same columns as training, minus Churn)
-new_customer = pd.DataFrame([{
-    'gender': 'Female', 'SeniorCitizen': 0, 'Partner': 'Yes',
-    'Dependents': 'No', 'tenure': 5, 'PhoneService': 'Yes',
-    'MultipleLines': 'No', 'InternetService': 'Fiber optic',
-    'OnlineSecurity': 'No', 'OnlineBackup': 'No',
-    'DeviceProtection': 'No', 'TechSupport': 'No',
-    'StreamingTV': 'No', 'StreamingMovies': 'No',
-    'Contract': 'Month-to-month', 'PaperlessBilling': 'Yes',
-    'PaymentMethod': 'Electronic check',
-    'MonthlyCharges': 80.0, 'TotalCharges': 400.0
-}])
-
-pred  = pipeline.predict(new_customer)[0]
-proba = pipeline.predict_proba(new_customer)[0][1]
-print('Churn' if pred == 1 else 'No Churn', f'({proba:.1%} probability)')
-```
+To use this with real house images:
+1. Replace `generate_house_image()` with actual image loading (e.g. from a Zillow/Kaggle dataset)
+2. Swap the 3-layer CNN with a pretrained model like `ResNet50` or `EfficientNet` for richer feature extraction
+3. Add data augmentation (flips, crops) to regularize the image branch
 
 ---
 
 ## 🧠 Skills Gained
 
-- ML pipeline construction with `Pipeline` and `ColumnTransformer`
-- Hyperparameter tuning across multiple model types with `GridSearchCV`
-- Model export and reusability via `joblib`
-- Production-readiness: no data leakage, single reusable artifact
+- Multimodal deep learning (combining heterogeneous data types)
+- CNN architecture design for image feature extraction
+- Keras Functional API for multi-input models
+- Regression evaluation: MAE, RMSE
+- Baseline comparison methodology
 
 ---
 
 ## 📌 References
 
-- [Telco Customer Churn Dataset — IBM](https://github.com/IBM/telco-customer-churn-on-icp4d)
-- [scikit-learn Pipeline docs](https://scikit-learn.org/stable/modules/compose.html)
-- [GridSearchCV docs](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html)
-- [joblib docs](https://joblib.readthedocs.io/)
+- [California Housing Dataset — scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_california_housing.html)
+- [Keras Functional API](https://keras.io/guides/functional_api/)
+- [TensorFlow Conv2D docs](https://www.tensorflow.org/api_docs/python/tf/keras/layers/Conv2D)
